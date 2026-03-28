@@ -20,76 +20,54 @@ templates = Jinja2Templates(directory="templates")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
 @app.on_event("startup")
 def startup_event():
     database.setup_database()
 
-
 @app.get("/", response_class=HTMLResponse)
+
 async def index(request: Request):
     if request.session.get("user_id"):
         return RedirectResponse(url="/dashboard", status_code=303)
     return RedirectResponse(url="/login", status_code=303)
 
-
 @app.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
-
+    return templates.TemplateResponse(request=request, name="login.html", context={"request": request, "error": None})
 
 @app.post("/login", response_class=HTMLResponse)
-async def login_post(
-    request: Request, username: str = Form(...), password: str = Form(...)
-):
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     success, result = user_auth.login_user(username, password)
     if success:
         request.session["user_id"] = result
         return RedirectResponse(url="/dashboard", status_code=303)
-    return templates.TemplateResponse(
-        "login.html", {"request": request, "error": result}
-    )
-
+    return templates.TemplateResponse(request=request, name="login.html", context={"request": request, "error": result})
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_get(request: Request):
-    return templates.TemplateResponse(
-        "register.html", {"request": request, "error": None}
-    )
-
+    return templates.TemplateResponse(request=request, name="register.html", context={"request": request, "error": None})
 
 @app.post("/register", response_class=HTMLResponse)
-async def register_post(
-    request: Request, username: str = Form(...), password: str = Form(...)
-):
+async def register_post(request: Request, username: str = Form(...), password: str = Form(...)):
     success, message = user_auth.register_user(username, password)
     if success:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse(
-        "register.html", {"request": request, "error": message}
-    )
-
+    return templates.TemplateResponse(request=request, name="register.html", context={"request": request, "error": message})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(url="/login", status_code=303)
-
+        
     connection = database.get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute(
-        "SELECT * FROM file_metadata WHERE user_id = %s ORDER BY upload_timestamp DESC",
-        (user_id,),
-    )
+    cursor.execute("SELECT * FROM file_metadata WHERE user_id = %s ORDER BY upload_timestamp DESC", (user_id,))
     files = cursor.fetchall()
     cursor.close()
     connection.close()
-
-    return templates.TemplateResponse(
-        "dashboard.html", {"request": request, "files": files}
-    )
-
+    
+    return templates.TemplateResponse(request=request, name="dashboard.html", context={"request": request, "files": files})
 
 @app.post("/upload")
 async def upload_file(request: Request, file: UploadFile = File(...)):
@@ -101,7 +79,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    encrypted_filepath = encryptor.encrypt_file(filepath)
+    encrypted_filepath = encrypter.encrypt_file(filepath)
     encrypted_filename = os.path.basename(encrypted_filepath)
     file_size = os.path.getsize(encrypted_filepath)
 
@@ -109,14 +87,13 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     cursor = connection.cursor()
     cursor.execute(
         "INSERT INTO file_metadata (user_id, original_filename, encrypted_filename, file_size) VALUES (%s, %s, %s, %s)",
-        (user_id, file.filename, encrypted_filename, file_size),
+        (user_id, file.filename, encrypted_filename, file_size)
     )
     connection.commit()
     cursor.close()
     connection.close()
 
     return RedirectResponse(url="/dashboard", status_code=303)
-
 
 @app.get("/download/{file_id}")
 async def download_file(request: Request, file_id: int):
@@ -126,9 +103,7 @@ async def download_file(request: Request, file_id: int):
 
     connection = database.get_db_connection()
     cursor = connection.cursor(dictionary=True)
-    cursor.execute(
-        "SELECT * FROM file_metadata WHERE id = %s AND user_id = %s", (file_id, user_id)
-    )
+    cursor.execute("SELECT * FROM file_metadata WHERE id = %s AND user_id = %s", (file_id, user_id))
     file_data = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -136,14 +111,13 @@ async def download_file(request: Request, file_id: int):
     if not file_data:
         return RedirectResponse(url="/dashboard", status_code=303)
 
-    encrypted_filepath = os.path.join(UPLOAD_DIR, file_data["encrypted_filename"])
+    encrypted_filepath = os.path.join(UPLOAD_DIR, file_data['encrypted_filename'])
     if not os.path.exists(encrypted_filepath):
         return RedirectResponse(url="/dashboard", status_code=303)
 
-    decrypted_filepath = encryptor.decrypt_file(encrypted_filepath)
-
-    return FileResponse(decrypted_filepath, filename=file_data["original_filename"])
-
+    decrypted_filepath = encrypter.decrypt_file(encrypted_filepath)
+    
+    return FileResponse(decrypted_filepath, filename=file_data['original_filename'])
 
 @app.get("/logout")
 async def logout(request: Request):

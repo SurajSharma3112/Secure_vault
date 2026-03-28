@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PySecureVault</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="header">
+            <h1><i class="fas fa-shield-alt"></i> PySecureVault</h1>
+            <a href="/logout" class="btn logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="upload-section">
+                <h2><i class="fas fa-lock"></i> Encrypt a New File</h2>
+                <p class="section-desc">Select a file from your device to securely encrypt and store it in your vault.</p>
+                <form action="/upload" method="POST" enctype="multipart/form-data" class="upload-form">
+                    <div class="file-input-wrapper">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <input type="file" name="file" required class="file-input">
+                    </div>
+                    <button type="submit" class="btn upload-btn"><i class="fas fa-key"></i> Encrypt & Upload</button>
+                </form>
+            </div>
+
+            <div class="files-section">
+                <h2><i class="fas fa-folder-open"></i> My Encrypted Files</h2>
+                <div class="table-wrapper">
+                    {% if files %}
+                        <table class="files-table">
+                            <thead>
+                                <tr>
+                                    <th>File Details</th>
+                                    <th>Size</th>
+                                    <th>Date Added</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td>
+                                        <div class="file-info">
+                                            <i class="fas fa-file-alt file-icon"></i>
+                                            <span class="file-name">{{ file.original_filename }}</span>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge size-badge">{{ file.file_size }} B</span></td>
+                                    <td><span class="date-text"><i class="far fa-calendar-alt"></i> {{ file.upload_timestamp.strftime('%Y-%m-%d') }}</span></td>
+                                    <td>
+                                        <a href="/download/{{ file.id }}" class="btn download-btn" title="Decrypt & Download">
+                                            <i class="fas fa-unlock-alt"></i> Decrypt
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-files">
+                            <i class="fas fa-box-open empty-icon"></i>
+                            <p>Your vault is empty.</p>
+                            <span>Upload a file to secure it.</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
